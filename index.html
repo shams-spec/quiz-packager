@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -5,10 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quiz Packager</title>
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=Varela+Round&display=swap");
+
     :root {
-      font-family: Arial, Calibri, sans-serif;
-      color: #1f2933;
-      background: #f4f6f8;
+      font-family: "Varela Round", Arial, Calibri, sans-serif;
+      color: #edf3ff;
+      background: #0d111c;
     }
 
     body {
@@ -18,27 +21,31 @@
       place-items: center;
       padding: 24px;
       box-sizing: border-box;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.32), transparent 34%),
+        linear-gradient(135deg, #0d111c 0%, #151b2d 48%, #101827 100%);
     }
 
     main {
       width: min(680px, 100%);
-      background: #ffffff;
-      border: 1px solid #d8dee6;
+      background: rgba(18, 26, 43, 0.94);
+      border: 1px solid #263653;
       border-radius: 8px;
-      padding: 28px;
+      padding: 30px;
       box-sizing: border-box;
-      box-shadow: 0 10px 30px rgba(31, 41, 51, 0.08);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
     }
 
     h1 {
       margin: 0 0 8px;
-      font-size: 28px;
+      font-size: 30px;
       line-height: 1.2;
+      color: #f8fbff;
     }
 
     .instructions {
       margin: 0 0 24px;
-      color: #52606d;
+      color: #aab8d3;
       font-size: 15px;
     }
 
@@ -48,13 +55,17 @@
       gap: 12px;
       align-items: center;
       margin: 16px 0;
+      padding: 12px;
+      border: 1px solid #2d3d5f;
+      border-radius: 8px;
+      background: #111a2c;
     }
 
     button, .file-button {
-      border: 1px solid #9aa5b1;
+      border: 1px solid #3a4e75;
       border-radius: 6px;
-      background: #ffffff;
-      color: #1f2933;
+      background: #18243a;
+      color: #edf3ff;
       font-size: 15px;
       font-weight: 700;
       padding: 11px 14px;
@@ -64,41 +75,42 @@
     }
 
     button:hover, .file-button:hover {
-      background: #f0f4f8;
+      background: #223451;
+      border-color: #5aa3ff;
     }
 
     .generate {
       margin-top: 10px;
       width: 100%;
-      border-color: #1f4e79;
-      background: #1f4e79;
+      border-color: #4f8cff;
+      background: #2563eb;
       color: #ffffff;
       font-size: 16px;
       padding: 14px 16px;
     }
 
     .generate:hover {
-      background: #183f62;
+      background: #1d4ed8;
     }
 
     .download {
       margin-top: 12px;
       width: 100%;
-      border-color: #167c5c;
-      background: #167c5c;
+      border-color: #29d391;
+      background: #13986b;
       color: #ffffff;
       font-size: 16px;
       padding: 14px 16px;
     }
 
     .download:hover {
-      background: #106348;
+      background: #0f7f5b;
     }
 
     .download:disabled {
-      border-color: #9aa5b1;
-      background: #d9e2ec;
-      color: #52606d;
+      border-color: #37445f;
+      background: #20293b;
+      color: #7b88a3;
       cursor: not-allowed;
     }
 
@@ -112,31 +124,25 @@
 
     .file-name {
       min-height: 22px;
-      color: #323f4b;
+      color: #d8e2f7;
       overflow-wrap: anywhere;
     }
 
     .status {
       margin-top: 18px;
       min-height: 52px;
-      border: 1px solid #d8dee6;
+      border: 1px solid #32466b;
       border-radius: 6px;
       padding: 12px;
-      background: #fbfcfd;
-      color: #1f4e79;
+      background: #0f1728;
+      color: #93c5fd;
       white-space: pre-wrap;
     }
 
     .status.error {
-      color: #9b1c1c;
-      border-color: #f2b8b5;
-      background: #fff7f7;
-    }
-
-    .note {
-      margin-top: 14px;
-      color: #616e7c;
-      font-size: 13px;
+      color: #fecaca;
+      border-color: #7f1d1d;
+      background: #2b1118;
     }
 
     @media (max-width: 560px) {
@@ -170,7 +176,6 @@
     <button class="generate" id="generateButton" type="button">Generate Combined Word File</button>
     <button class="download" id="downloadButton" type="button" disabled>Download Combined Word File</button>
     <div class="status" id="status">Ready.</div>
-    <div class="note">This page runs locally in your browser. Keep <strong>OPEN_QUIZ_PACKAGER.html</strong> and <strong>jszip.min.js</strong> in the same folder.</div>
   </main>
 
   <script src="jszip.min.js"></script>
