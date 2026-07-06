@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz Packager</title>
+  <style>
+    :root {
+      font-family: Arial, Calibri, sans-serif;
+      color: #1f2933;
+      background: #f4f6f8;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    main {
+      width: min(680px, 100%);
+      background: #ffffff;
+      border: 1px solid #d8dee6;
+      border-radius: 8px;
+      padding: 28px;
+      box-sizing: border-box;
+      box-shadow: 0 10px 30px rgba(31, 41, 51, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+
+    .instructions {
+      margin: 0 0 24px;
+      color: #52606d;
+      font-size: 15px;
+    }
+
+    .file-row {
+      display: grid;
+      grid-template-columns: minmax(210px, auto) 1fr;
+      gap: 12px;
+      align-items: center;
+      margin: 16px 0;
+    }
+
+    button, .file-button {
+      border: 1px solid #9aa5b1;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #1f2933;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 11px 14px;
+      cursor: pointer;
+      text-align: center;
+      user-select: none;
+    }
+
+    button:hover, .file-button:hover {
+      background: #f0f4f8;
+    }
+
+    .generate {
+      margin-top: 10px;
+      width: 100%;
+      border-color: #1f4e79;
+      background: #1f4e79;
+      color: #ffffff;
+      font-size: 16px;
+      padding: 14px 16px;
+    }
+
+    .generate:hover {
+      background: #183f62;
+    }
+
+    .download {
+      margin-top: 12px;
+      width: 100%;
+      border-color: #167c5c;
+      background: #167c5c;
+      color: #ffffff;
+      font-size: 16px;
+      padding: 14px 16px;
+    }
+
+    .download:hover {
+      background: #106348;
+    }
+
+    .download:disabled {
+      border-color: #9aa5b1;
+      background: #d9e2ec;
+      color: #52606d;
+      cursor: not-allowed;
+    }
+
+    input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+
+    .file-name {
+      min-height: 22px;
+      color: #323f4b;
+      overflow-wrap: anywhere;
+    }
+
+    .status {
+      margin-top: 18px;
+      min-height: 52px;
+      border: 1px solid #d8dee6;
+      border-radius: 6px;
+      padding: 12px;
+      background: #fbfcfd;
+      color: #1f4e79;
+      white-space: pre-wrap;
+    }
+
+    .status.error {
+      color: #9b1c1c;
+      border-color: #f2b8b5;
+      background: #fff7f7;
+    }
+
+    .note {
+      margin-top: 14px;
+      color: #616e7c;
+      font-size: 13px;
+    }
+
+    @media (max-width: 560px) {
+      main {
+        padding: 22px;
+      }
+
+      .file-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Quiz Packager</h1>
+    <p class="instructions">Upload two .docx quiz files and generate one combined Word file.</p>
+
+    <div class="file-row">
+      <label class="file-button" for="primaryFile">Select Primary Quiz File</label>
+      <div class="file-name" id="primaryName">No primary file selected</div>
+      <input id="primaryFile" type="file" accept=".docx">
+    </div>
+
+    <div class="file-row">
+      <label class="file-button" for="translatedFile">Select Translated Quiz File</label>
+      <div class="file-name" id="translatedName">No translated file selected</div>
+      <input id="translatedFile" type="file" accept=".docx">
+    </div>
+
+    <button class="generate" id="generateButton" type="button">Generate Combined Word File</button>
+    <button class="download" id="downloadButton" type="button" disabled>Download Combined Word File</button>
+    <div class="status" id="status">Ready.</div>
+    <div class="note">This page runs locally in your browser. Keep <strong>OPEN_QUIZ_PACKAGER.html</strong> and <strong>jszip.min.js</strong> in the same folder.</div>
+  </main>
+
+  <script src="jszip.min.js"></script>
+  <script>
+    const DOCX_ERROR = "Only .docx files are supported. Please convert your file to .docx first.";
+
+    const primaryInput = document.getElementById("primaryFile");
+    const translatedInput = document.getElementById("translatedFile");
+    const primaryName = document.getElementById("primaryName");
+    const translatedName = document.getElementById("translatedName");
+    const statusBox = document.getElementById("status");
+    const generateButton = document.getElementById("generateButton");
+    const downloadButton = document.getElementById("downloadButton");
+    let generatedDocxBlob = null;
+
+    function isDocxFile(file) {
+      return Boolean(file && file.name.toLowerCase().endsWith(".docx"));
+    }
+
+    function setStatus(message, isError = false) {
+      statusBox.textContent = message;
+      statusBox.classList.toggle("error", isError);
+    }
+
+    function handleFileSelection(input, label, emptyText) {
+      const file = input.files[0];
+      if (!file) {
+        label.textContent = emptyText;
+        return;
+      }
+
+      if (!isDocxFile(file)) {
+        input.value = "";
+        label.textContent = emptyText;
+        setStatus(DOCX_ERROR, true);
+        alert(DOCX_ERROR);
+        return;
+      }
+
+      label.textContent = file.name;
+      generatedDocxBlob = null;
+      downloadButton.disabled = true;
+      setStatus("File selected.");
+    }
+
+    primaryInput.addEventListener("change", () => {
+      handleFileSelection(primaryInput, primaryName, "No primary file selected");
+    });
+
+    translatedInput.addEventListener("change", () => {
+      handleFileSelection(translatedInput, translatedName, "No translated file selected");
+    });
+
+    function escapeXml(value) {
+      return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    }
+
+    function textFromParagraph(paragraph) {
+      let text = "";
+
+      function walk(node) {
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return;
+        }
+
+        if (node.localName === "t") {
+          text += node.textContent || "";
+          return;
+        }
+
+        if (node.localName === "tab") {
+          text += "\t";
+          return;
+        }
+
+        if (node.localName === "br" || node.localName === "cr") {
+          text += "\n";
+          return;
+        }
+
+        for (const child of node.childNodes) {
+          walk(child);
+        }
+      }
+
+      walk(paragraph);
+      return text.trim();
+    }
+
+    async function readDocxParagraphs(file) {
+      const zip = await JSZip.loadAsync(file);
+      const documentFile = zip.file("word/document.xml");
+
+      if (!documentFile) {
+        throw new Error("This .docx file could not be read.");
+      }
+
+      const documentXml = await documentFile.async("text");
+      const xmlDocument = new DOMParser().parseFromString(documentXml, "application/xml");
+
+      if (xmlDocument.querySelector("parsererror")) {
+        throw new Error("This .docx file could not be read.");
+      }
+
+      const paragraphs = Array.from(xmlDocument.getElementsByTagNameNS("*", "p"));
+      return paragraphs.map(textFromParagraph);
+    }
+
+    function textRunsXml(text) {
+      const parts = String(text).split("\n");
+      return parts.map((part, index) => {
+        const breakXml = index === 0 ? "" : "<w:br/>";
+        return `${breakXml}<w:t xml:space="preserve">${escapeXml(part)}</w:t>`;
+      }).join("");
+    }
+
+    function paragraphXml(text, options = {}) {
+      if (!text) {
+        return "<w:p/>";
+      }
+
+      const bold = options.bold ? "<w:b/>" : "";
+      const size = options.size || "22";
+      const paragraphStyle = options.style ? `<w:pPr><w:pStyle w:val="${options.style}"/></w:pPr>` : "";
+
+      return [
+        "<w:p>",
+        paragraphStyle,
+        "<w:r><w:rPr>",
+        bold,
+        "<w:rFonts w:ascii=\"Calibri\" w:hAnsi=\"Calibri\"/>",
+        `<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>`,
+        "</w:rPr>",
+        textRunsXml(text),
+        "</w:r></w:p>"
+      ].join("");
+    }
+
+    function splitLines(text) {
+      return String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    }
+
+    function combineParagraphText(primaryText, translatedText) {
+      const primaryLines = splitLines(primaryText);
+      const translatedLines = splitLines(translatedText);
+
+      return primaryLines.map((primaryLine, index) => {
+        const cleanPrimary = primaryLine.trim();
+        const cleanTranslated = (translatedLines[index] || "").trim();
+
+        if (!cleanPrimary) {
+          return "";
+        }
+
+        return cleanTranslated ? `${cleanPrimary} (${cleanTranslated})` : cleanPrimary;
+      }).join("\n");
+    }
+
+    function isAnswerOnlyParagraph(text) {
+      return /^(answer|réponse|reponse)\s*[:：]/i.test(String(text || "").trim());
+    }
+
+    function normalizeQuizBlocks(paragraphs) {
+      const cleanParagraphs = paragraphs
+        .map((paragraph) => String(paragraph || "").trim())
+        .filter((paragraph) => paragraph.length > 0);
+
+      if (cleanParagraphs.length === 0) {
+        return [];
+      }
+
+      const blocks = [cleanParagraphs[0]];
+
+      for (const paragraph of cleanParagraphs.slice(1)) {
+        if (isAnswerOnlyParagraph(paragraph) && blocks.length > 1) {
+          blocks[blocks.length - 1] = `${blocks[blocks.length - 1]}\n${paragraph}`;
+        } else {
+          blocks.push(paragraph);
+        }
+      }
+
+      return blocks;
+    }
+
+    function buildDocumentXml(lines) {
+      const paragraphs = lines.map((line) => paragraphXml(line)).join("");
+
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex" xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid" xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml" xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash" xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex" mc:Ignorable="w14 w15 w16se w16cid w16 w16cex w16sdtdh wp14">
+  <w:body>
+    ${paragraphs}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+    }
+
+    function stylesXml() {
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:sz w:val="22"/>
+        <w:szCs w:val="22"/>
+      </w:rPr>
+    </w:rPrDefault>
+  </w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:qFormat/>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+    <w:rPr>
+      <w:b/>
+      <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+      <w:sz w:val="32"/>
+      <w:szCs w:val="32"/>
+    </w:rPr>
+  </w:style>
+</w:styles>`;
+    }
+
+    async function createDocx(lines) {
+      const zip = new JSZip();
+
+      zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`);
+
+      zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+      zip.folder("word").file("document.xml", buildDocumentXml(lines));
+      zip.folder("word").file("styles.xml", stylesXml());
+      zip.folder("word").folder("_rels").file("document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`);
+
+      return zip.generateAsync({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    generateButton.addEventListener("click", async () => {
+      const primaryFile = primaryInput.files[0];
+      const translatedFile = translatedInput.files[0];
+
+      if (!primaryFile || !translatedFile) {
+        setStatus("Please select both quiz files before generating the combined Word file.", true);
+        return;
+      }
+
+      if (!isDocxFile(primaryFile) || !isDocxFile(translatedFile)) {
+        setStatus(DOCX_ERROR, true);
+        alert(DOCX_ERROR);
+        return;
+      }
+
+      generateButton.disabled = true;
+      setStatus("Generating combined Word file...");
+
+      try {
+        const primaryParagraphs = await readDocxParagraphs(primaryFile);
+        const translatedParagraphs = await readDocxParagraphs(translatedFile);
+
+        const primaryBlocks = normalizeQuizBlocks(primaryParagraphs);
+        const translatedBlocks = normalizeQuizBlocks(translatedParagraphs);
+
+        const outputLines = primaryBlocks.map((primaryText, index) => {
+          return combineParagraphText(primaryText, translatedBlocks[index] || "");
+        });
+
+        generatedDocxBlob = await createDocx(outputLines);
+        downloadButton.disabled = false;
+        setStatus("Success! Combined Word file is ready.\nClick Download Combined Word File to save it.");
+      } catch (error) {
+        setStatus(`Could not generate the file.\n\n${error.message}`, true);
+      } finally {
+        generateButton.disabled = false;
+      }
+    });
+
+    downloadButton.addEventListener("click", () => {
+      if (!generatedDocxBlob) {
+        setStatus("Please generate the combined Word file first.", true);
+        return;
+      }
+
+      downloadBlob(generatedDocxBlob, "combined_quiz_output.docx");
+      setStatus("Download started: combined_quiz_output.docx");
+    });
+  </script>
+</body>
+</html>
